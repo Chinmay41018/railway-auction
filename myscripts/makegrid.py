@@ -38,3 +38,9 @@ with open("output/infrastructure", "w") as infra_output:
             if i + 1 < row:
                 infra_output.write(chr(65 + i) + str(j + 1) +
                                    "," + chr(66 + i) + str(j + 1) + "\n")
+with open("output/transit", "w") as transit_output:
+    for i in range(0, row):
+        for j in range(0, col):
+            for  _i in range(i+1, row):
+                for  _j in range(j+1, col):
+                    transit_output.write(chr(65+i)+str(j+1)+","+chr(65+_i)+str(_j+1)+",500\n")
