@@ -45,7 +45,7 @@ with open("output/transit", "w") as transit_output:
             nodes.append(chr(65+i)+str(j+1))
 
     for i in range(0, len(nodes)):
-        for j in range(i, len(nodes)):
+        for j in range(i+1, len(nodes)):
             transit_output.write(nodes[i]+","+nodes[j]+",500\n")
     # for i in range(0, row):
     #     for j in range(0, col):
