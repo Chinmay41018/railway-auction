@@ -35,8 +35,10 @@ public class Player implements railway.sim.Player {
     private List<List<Integer>> infra;
     private int[][] transit;
 
-    //hashmap of all our connections- and then map connection 1 etc. to amount of traffic between 
-    private HashMap<Connection, Integer> connections = new HashMap<Connection, Integer>();
+    //hashmap of all our connections- and then map connection 1 etc. to bid ID 
+    //key: coordinates, valueL bidID
+    private HashMap<Connection, Integer> coordinateBidId = new HashMap<Connection, Integer>();
+    private HashMap<Integer, Connection> bidIdCoordinate = new HashMap<Integer, Connection>(); 
 
     //okay new HashMap that just uses bid ID instead 
     //maps bid ID to amount of traffic on that link 
@@ -47,6 +49,14 @@ public class Player implements railway.sim.Player {
 
     //Hahsmap for edgeweights
     private HashMap<Integer, Integer> bidIdEdgeWeight = new HashMap<Integer, Integer>();
+
+    //Hashmap for the hubs, key: bid id, value: number of connections
+    private HashMap<Integer, Integer> rowNumCon = new HashMap<Integer, Integer>();
+    private int hubStart;
+    private int hubEnd; 
+
+    //Hashmap for hub and their highest adjacent? 
+
 
 
     private int totalTraffic = 0;
@@ -121,8 +131,47 @@ public class Player implements railway.sim.Player {
     }
 
 
+     private void getAdjacentBids(){
+        int highestTraffic = 0; 
+        int secondTraffic = 0; 
+
+        int link1; 
+        int link2; 
+
+        if(bidIdTraffic.get(hubStart) > bidIdTraffic.get(hubEnd)){
+            link1 = hubStart; 
+            link2 = hubEnd; 
+        }
+        else{
+            link1 = hubEnd; 
+            link2 = hubStart; 
+        }
+      
+        int row; 
+        int column; 
+
+        for(int i = hubStart; i <= hubEnd; i++){
+            row = bidIdCoordinate.get(i).row; 
+            column = bidIdCoordinate.get(i).column; 
+
+            System.out.println("Bid ID: " +  i + " corresponds to: (" +row +"," +column + ")" + 
+                " and has traffic: " + bidIdTraffic.get(i)); 
+            if(bidIdTraffic.get(i) > highestTraffic){
+                highestTraffic = bidIdTraffic.get(i); 
+                link1 = i;
+            }
+            else if(bidIdTraffic.get(i) > secondTraffic){
+                secondTraffic = bidIdTraffic.get(i); 
+                link2 = i; 
+            }
+        }
+        System.out.println("I found two links with the highest traffic"); 
+        System.out.println("Link 1: " + link1 + " has traffic: " + highestTraffic); 
+        System.out.println("Link 2: " + link2 + " has traffic: " + secondTraffic); 
+     }
+
     //finds single link with highest traffic 
-    private int calculateHighestTraffic() {
+    private int calculateHighestTraffic(){
         int currentMax = 0;
         int best = 0;
 
@@ -176,13 +225,29 @@ public class Player implements railway.sim.Player {
     //adds to both hashmaps, and updates total traffic
     private void buildHashMap() {
         int bidID = 0;
+        int largestList = 0;         
+
         for (int l = 0; l < infra.size(); l++) {
             List<Integer> row = infra.get(l);
+            
+            //check for hubs 
+            if(row.size() > largestList){
+                hubStart = bidID; 
+                hubEnd = bidID + (row.size()-1);  
+            }
+
+            rowNumCon.put(l,row.size()); 
+
             for (int i = 0; i < row.size(); i++) {
                 int there = row.get(i);
                 Connection pair = new Connection(l, there);
                 int traffic = transit[l][there];
-                connections.put(pair, traffic);
+                
+                //mapping coordinates and bid IDs
+                coordinateBidId.put(pair, bidID);
+                bidIdCoordinate.put(bidID, pair); 
+
+                //mapping bid Ids and traffic 
                 bidIdTraffic.put(bidID, traffic);
                 totalTraffic += traffic;
                 bidID++;
@@ -247,6 +312,9 @@ public class Player implements railway.sim.Player {
         }
         */
         //adding all available bids and adding to hashmap of bid id to minimum bid
+        
+        //printAllInfo(currentBids, allBids); 
+
         for (BidInfo bi : allBids) {
             if (bi.owner == null) {
                 availableBids.add(bi);
@@ -258,6 +326,11 @@ public class Player implements railway.sim.Player {
             return null;
         }
 
+        getAdjacentBids(); 
+        System.out.println("The infra: " + infra); 
+        System.out.println("The num conn HashMap: " + rowNumCon); 
+        // for(key)
+        // System.out.prinln("BidID and Coordinate map: " + bidIdCoordinate); 
 
         int bidID = highestTrafficEdgeWeight();
         //int bidID = calculateHighestTraffic();
