@@ -24,3 +24,6 @@ hs_err_pid*
 
 # Mac .DS_Store file.
 .DS_Store
+
+# idea files:
+.idea/*

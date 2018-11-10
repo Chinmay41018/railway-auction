@@ -1,13 +1,7 @@
 package railway.sim;
 
 import java.awt.Desktop;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -49,6 +43,12 @@ public class Simulator {
     private static String transit_f = "transit";
     private static String infra_f = "infrastructure";
     private static String dir = "railway/sim/input/";
+
+    //replay
+    private static boolean hasReplay = false;
+    private static String replayPath = "replay.json"; //default path for replay
+    private static List<String> replayBuffer; //list of json strings for replay
+    private static boolean playback = false; //playback mode
 
     private static List<Coordinates> geo = new ArrayList<>();
     private static List<List<Integer>> infra = new ArrayList<>();
@@ -92,7 +92,38 @@ public class Simulator {
             }
         }
 
+        if(playback){ //playback mode
+            //only load and send json to server and then exit
+
+            replayBuffer = new ArrayList<>();
+            BufferedReader br = new BufferedReader(new FileReader(replayPath));
+            String line;
+            try {
+                while((line = br.readLine()) != null){
+                    replayBuffer.add(line);
+                }
+            }
+            finally {
+                br.close();
+            }
+
+            for(String record:replayBuffer){
+                gui(server, record);
+            }
+            System.exit(0);
+        }
+
+        if(hasReplay){
+            replayBuffer = new ArrayList<>();
+        }
+
         if (playerNames.size() == 0) {
+            //save state to replay json frame
+            if(hasReplay){
+                replayBuffer.add(state(-1, geo, infra, 0));
+            }
+
+
             if (gui) {
                 gui(server, state(-1, geo, infra, 0));
             }
@@ -130,6 +161,10 @@ public class Simulator {
 
         // Update the list of players to remove those that threw exceptions.
         players = updates;
+
+        if(hasReplay){
+            replayBuffer.add(state(fps, geo, infra, budget));
+        }
 
         if (gui) {
             gui(server, state(fps, geo, infra, budget));
@@ -213,6 +248,9 @@ public class Simulator {
                     }
                 }
 
+                if(hasReplay){
+                    replayBuffer.add(state(fps, allBids, origPlayers));
+                }
                 if (gui) {
                     gui(server, state(fps, allBids, origPlayers));
                 }
@@ -229,6 +267,15 @@ public class Simulator {
         printStats(playerProfits);
 
         revertGovAssignment(playerProfits);
+
+        if(hasReplay){
+            replayBuffer.add(state(-1, allBids, origPlayers, playerProfits));
+            PrintWriter writer = new PrintWriter(replayPath, "UTF-8");
+            for(String record:replayBuffer){
+                writer.println(record);
+            }
+            writer.close();
+        }
 
         if (gui) {
             gui(server, state(-1, allBids, origPlayers, playerProfits));
@@ -867,9 +914,28 @@ public class Simulator {
                         fps = Double.parseDouble(args[i]);
                     } else if (args[i].equals("-v") || args[i].equals("--verbose")) {
                         Log.activate();
-                    } else {
+                    }
+                    //save replay
+                    else if (args[i].equals("--save")){
+                        hasReplay = true;
+                        if(i+1<args.length){
+                            if(args[i+1].endsWith(".json"))
+                                replayPath = args[++i];
+                        }
+                    }
+                    //replay playback
+                    else if (args[i].equals("--playback")){
+                        playback = true;
+                        gui = true;
+                        if(i+1<args.length){
+                            if(args[i+1].endsWith(".json"))
+                                replayPath = args[++i];
+                        }
+                    }
+                    else {
                         throw new IllegalArgumentException("Unknown argument '" + args[i] + "'");
                     }
+
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown argument '" + args[i] + "'");
