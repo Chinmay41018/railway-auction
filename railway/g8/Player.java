@@ -66,12 +66,6 @@ public class Player implements railway.sim.Player {
     //Hahsmap for edgeweights
     private HashMap<Integer, Integer> bidIdEdgeWeight = new HashMap<Integer, Integer>();
 
-    // //Hashmap for the hubs, key: bid id, value: number of connections
-    // private HashMap<Integer, Integer> rowNumCon = new HashMap<Integer, Integer>();
-    //  private HashMap<Integer, Integer> numConRow = new HashMap<Integer, Integer>();
-    // private int hubStart;
-    // private int hubEnd; 
-
     //of Bid id to dup bid
     private HashMap<Integer, Integer> duplicateTracks = new HashMap<Integer, Integer>(); 
 
@@ -224,76 +218,7 @@ public class Player implements railway.sim.Player {
 
             //System.out.print("The links!: " + link1 + " " + link2); 
             goodAdj.put(link1,link2); 
-    }
-
-
-       // System.out.println(rowNumCon); 
-       // TreeMap<Integer, Integer> tree = new TreeMap<>(rowNumCon); 
-       // for(Map.Entry<Integer,Integer> entry : tree.entrySet()) {
-       //      Integer key = entry.getKey();
-       //      Integer value = entry.getValue();
-
-       //      System.out.println(key + " => " + value);
-       //  }
-
-        // Set keyset = rowNumCon.keySet(); 
-        // Object keys = rowNumCon.keySet().toArray(); 
-        // Arrays.sort(keys); 
-        // System.out.println("The num con: " +keys); 
-
-
-
-        // List<Map.Entry<Integer, Integer> > list = 
-        //        new LinkedList<Map.Entry<Integer, Integer>>(rowNumCon.entrySet()); 
-  
-        // // Sort the list 
-        // Collections.sort(list, new Comparator<Map.Entry<Integer, Integer> >() { 
-        //     public int compare(Map.Entry<Integer, Integer> o1,  
-        //                        Map.Entry<Integer, Integer> o2) 
-        //     { 
-        //         return (o1.getValue()).compareTo(o2.getValue()); 
-        //     } 
-        // }); 
-
-        // //this is sorted "row num" to num connections
-        // for(Map.Entry<Integer, Integer> entry : list){
-        //     //arbitrarily looking for hubs of three or more
-        //     if(entry.getValue() > 2){
-        //         xCord = entry.getKey(); 
-        //         List<Integer> yCords = infra.get(xCord); 
-        //         System.out.println("Found the connections for the hub! " + yCords); 
-
-        //         int firstTraffic = -1; 
-        //         int secondTraffic = -1; 
-        //         int firstLink = 0; 
-        //         int secondLink = 0; 
-        //         for(int i = 0; i < yCords.size(); i++){ 
-        //             Pair p = new Pair(xCord, yCords.get(i)); 
-        //             int id = coordinateBidId.get(p); 
-        //             int traffic = bidIdEdgeWeight.get(id); 
-        //             if (traffic > firstTraffic) 
-        //             { 
-        //                 secondTraffic = firstTraffic; 
-        //                 first = traffic;
-
-        //                 secondLink = firstLink; 
-        //                 firstLink = id; 
-        //             } 
-        //             else if (traffic > secondTraffic && traffic != firstTraffic) 
-        //                 secondTraffic = traffic;
-        //                 secondLink = id;  
-        //             } 
-        //         }
-        //     }
-        
-
-        //System.out.println("The two links are: " + firstLink + "," + secondLink); 
-        // // put data from sorted list to hashmap  
-        // HashMap<String, Integer> temp = new LinkedHashMap<Integer, Integer>(); 
-        // for (Map.Entry<Integer, Integer> aa : list) { 
-        //     temp.put(aa.getKey(), aa.getValue()); 
-        // } 
-        // return temp; 
+        }
     } 
 
      private void updateAdjacent(){ 
@@ -362,11 +287,7 @@ public class Player implements railway.sim.Player {
             //check for hubs 
             if(row.size() > 3){
                 hubs.add(bidID);   
-            }
-            // System.out.println(row.size()); 
-            // rowNumCon.put(row.size(), bidID); 
-            // System.out.println("I did the thing!"); 
-
+            } 
 
             for (int i = 0; i < row.size(); i++) {
                 int there = row.get(i);
