@@ -76,6 +76,7 @@ public class Player implements railway.sim.Player {
     private List<Integer> hubs = new ArrayList<>(); 
     //hashmap of two good adjacent links to bid on! 
     private HashMap<Integer,Integer> goodAdj = new HashMap<Integer,Integer>(); 
+    private GraphUtility gu;
 
 
     private int totalTraffic = 0;
@@ -97,7 +98,7 @@ public class Player implements railway.sim.Player {
         this.budget = budget;
         this.transit = transit;
         this.infra = infra;
-        GraphUtility gu = new GraphUtility(geo, infra, transit, townLookup);
+        gu = new GraphUtility(geo, infra, transit, townLookup);
         lastBid = -1;
         // System.out.println("DEBUGGGGG ////////");
         // System.out.println(townLookup.get(0));
@@ -108,24 +109,6 @@ public class Player implements railway.sim.Player {
         //     System.out.print(",");
         // }
         // System.out.println("");
-//        int townsize = geo.size();
-//        int[][] edgeWeight = new int[townsize][townsize];
-//        for(int i=0;i<townsize;i++){
-//            for(int j=i+1;j<townsize;j++){
-//                if(gu.adj[i][j]==Double.POSITIVE_INFINITY) continue;
-//                edgeWeight[i][j] = edgeWeight[j][i] = transit[i][j];
-//            }
-//        }
-//        for(int i=0;i<townsize;i++){
-//            for(int j=i+1;j<townsize;j++){
-//                List<Integer> townPath = gu.path[i][j];
-//                if(townPath.size()<3)
-//                    continue;
-//                for(int k=0;k<townPath.size()-1;k++){
-//                    edgeWeight[townPath.get(k)][townPath.get(k+1)] += transit[i][j];
-//                }
-//            }
-//        }
 
         buildEdgeHashMap(gu.edgeWeight, geo);
         buildHashMap();
@@ -372,8 +355,11 @@ public class Player implements railway.sim.Player {
         */
         //adding all available bids and adding to hashmap of bid id to minimum bid
         
-        printAllInfo(currentBids, allBids); 
-
+        //printAllInfo(currentBids, allBids); 
+  //why are we buidling maps in the getBid function?? at least the buildHashMap(); only needs to occur in the init. 
+//         gu.update(allBids);
+//         buildEdgeHashMap(gu.edgeWeight, gu.geo);
+//         buildHashMap();
         for (BidInfo bi : allBids) {
             if (bi.owner == null) {
                 availableBids.add(bi);
