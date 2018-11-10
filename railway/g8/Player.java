@@ -8,8 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Arrays;
+import java.util.Map; 
+import java.util.Set; 
+import java.util.TreeMap; 
 
-import javafx.util.Pair;
 
 import java.util.HashMap;
 
@@ -26,11 +28,13 @@ class Connection {
     }
 }
 
-class Adjacent {
-    int link1; 
-    int link2; 
+class Pair {
+    int row; 
+    int column; 
 
-    public Adjacent(int link1, int link2){
+    public Pair(int row, int column){
+        this.row = row; 
+        this.column = column; 
 
     }
 }
@@ -49,8 +53,8 @@ public class Player implements railway.sim.Player {
 
     //hashmap of all our connections- and then map connection 1 etc. to bid ID 
     //key: coordinates, valueL bidID
-    private HashMap<Connection, Integer> coordinateBidId = new HashMap<Connection, Integer>();
-    private HashMap<Integer, Connection> bidIdCoordinate = new HashMap<Integer, Connection>(); 
+    private HashMap<Pair, Integer> coordinateBidId = new HashMap<Pair, Integer>();
+    //private HashMap<Integer, Connection> bidIdCoordinate = new HashMap<Integer, Connection>(); 
 
     //okay new HashMap that just uses bid ID instead 
     //maps bid ID to amount of traffic on that link 
@@ -62,24 +66,22 @@ public class Player implements railway.sim.Player {
     //Hahsmap for edgeweights
     private HashMap<Integer, Integer> bidIdEdgeWeight = new HashMap<Integer, Integer>();
 
-    //Hashmap for the hubs, key: bid id, value: number of connections
-    private HashMap<Integer, Integer> rowNumCon = new HashMap<Integer, Integer>();
-    private int hubStart;
-    private int hubEnd; 
+    // //Hashmap for the hubs, key: bid id, value: number of connections
+    // private HashMap<Integer, Integer> rowNumCon = new HashMap<Integer, Integer>();
+    //  private HashMap<Integer, Integer> numConRow = new HashMap<Integer, Integer>();
+    // private int hubStart;
+    // private int hubEnd; 
 
     //of Bid id to dup bid
     private HashMap<Integer, Integer> duplicateTracks = new HashMap<Integer, Integer>(); 
 
     private List<Connection> allLinks = new ArrayList<>(); 
 
-    //need to store both bid ids
-    //private ArrayList<
 
-    //Hashmap for hub and their highest adjacent? 
-
-
-
-
+    //To find adjacent 
+    private List<Integer> hubs = new ArrayList<>(); 
+    //hashmap of two good adjacent links to bid on! 
+    private HashMap<Integer,Integer> goodAdj = new HashMap<Integer,Integer>(); 
 
 
     private int totalTraffic = 0;
@@ -136,6 +138,7 @@ public class Player implements railway.sim.Player {
         
         //HEY GUYS this demos the structures I've built- you have a list all of all the connections, 
         //and a hashmap of the coordinates to the bid ID. 
+        //Don't forget to comment out print statements once you know what its doing! 
         System.out.println("The list of all connections: " );
         for(Connection c: allLinks){
 
@@ -145,6 +148,8 @@ public class Player implements railway.sim.Player {
 
         findDuplicates(); 
         System.out.println("The dups are: " + duplicateTracks); 
+
+        bestAdjacent(); 
     }
 
     /*
@@ -165,67 +170,7 @@ public class Player implements railway.sim.Player {
                 0.5);
     }
 
-
-    private void getAdjacentBids(){
-        int highestTraffic = 0; 
-        int secondTraffic = 0; 
-
-        int link1; 
-        int link2; 
-
-        if(bidIdTraffic.get(hubStart) > bidIdTraffic.get(hubEnd)){
-            link1 = hubStart; 
-            link2 = hubEnd; 
-        }
-        else{
-            link1 = hubEnd; 
-            link2 = hubStart; 
-        }
-      
-        int row; 
-        int column; 
-
-        for(int i = hubStart; i <= hubEnd; i++){
-            row = bidIdCoordinate.get(i).row; 
-            column = bidIdCoordinate.get(i).column; 
-
-            System.out.println("Bid ID: " +  i + " corresponds to: (" +row +"," +column + ")" + 
-                " and has traffic: " + bidIdTraffic.get(i)); 
-            if(bidIdTraffic.get(i) > highestTraffic){
-                highestTraffic = bidIdTraffic.get(i); 
-                link1 = i;
-            }
-            else if(bidIdTraffic.get(i) > secondTraffic){
-                secondTraffic = bidIdTraffic.get(i); 
-                link2 = i; 
-            }
-        }
-
-        System.out.println("I found two links with the highest traffic"); 
-        System.out.println("Link 1: " + link1 + " has traffic: " + highestTraffic); 
-        System.out.println("Link 2: " + link2 + " has traffic: " + secondTraffic); 
-     }
-
-
      private void findDuplicates(){ 
-
-
-        // //false if already contains
-        //  Set<Coordinates> noDups = new HashSet<Integer(); 
-        // for(int i = 0; i<allLinks.size(); i++){
-        //     for(int j = i+1; j < allLinks.size(); j++){ 
-        //         int link1x = allLinks.get(i).row; 
-        //         int link1y = allLinks.get(i).column; 
-        //         int link2x = allLinks.get(j).row; 
-        //         int link2y = allLinks.get(j).column; 
-
-        //         if(link1x == link2x && link1y == link2y){
-        //             duplicateTracks.put(allLinks.get(i).id, allLinks.get(j).id); 
-        //             duplicateTracks.put(allLinks.get(j).id, allLinks.get(i).id);
-        //         }
-
-        //     }
-        // }
         for(int i = 0; i < allLinks.size()-1; i++){
             Connection c1 = allLinks.get(i);
             Connection c2 = allLinks.get(i+1); 
@@ -234,48 +179,122 @@ public class Player implements railway.sim.Player {
                 duplicateTracks.put(c2.id, c1.id);
             }
         }
-       
-
      }
 
-    //  private void bestAdjacent(){
-    //  //sort the row to num conn map  
-    //     List<Map.Entry<Integer, Integer> > list = 
-    //            new LinkedList<Map.Entry<Integer, Integer> >(rowNumCon.entrySet()); 
-  
-    //     // Sort the list 
-    //     Collections.sort(list, new Comparator<Map.Entry<Integer, Integer> >() { 
-    //         public int compare(Map.Entry<Integer, Integer> o1,  
-    //                            Map.Entry<Integer, Integer> o2) 
-    //         { 
-    //             return (o1.getValue()).compareTo(o2.getValue()); 
-    //         } 
-    //     }); 
+     private void bestAdjacent(){
+     //sort the row to num conn map  
+       
+        int traffic1 = -1; 
+        int traffic2 = -1;
+        int link1 = -1; 
+        int link2 = -1; 
+        for(int i: hubs){
 
-    //     //this is sorted "row num" to num connections
-    //     for(Map.Entry<Integer, Integer> entry : list){
-    //         //arbitrarily looking for hubs of three or more
-    //         if(entry.getValue() > 2){
-    //             xCord = entry.getKey(); 
-    //             List<Integer> yCords = infra.get(xCord); 
-    //             System.out.println("Found the connections for the hub! " + yCords); 
-                
-    //             int firstTraffic = -1; 
-    //             int secondTraffic = -1; 
-    //             int firstLink = 0; 
-    //             int secondLink = 0; 
-    //             for(int i = 0; i < yCords.size(); i++){ 
-    //                 if(bidIdTraffic(i))
-    //             }
-    //         }
-    //     }
-    //     // // put data from sorted list to hashmap  
-    //     // HashMap<String, Integer> temp = new LinkedHashMap<Integer, Integer>(); 
-    //     // for (Map.Entry<Integer, Integer> aa : list) { 
-    //     //     temp.put(aa.getKey(), aa.getValue()); 
-    //     // } 
-    //     // return temp; 
-    // } 
+            traffic1 = bidIdEdgeWeight.get(i); 
+            traffic1 = bidIdEdgeWeight.get(i+1); 
+            int traffic3 = bidIdEdgeWeight.get(i+2); 
+
+            if(traffic1 >= traffic2 && traffic1 >= traffic3){
+                link1 = i; 
+                if(traffic2 >= traffic3){
+                    link2 = i+1; 
+                }
+                else{
+                    link2 = i+2; 
+                }
+            }
+            if (traffic2 >= traffic1 && traffic2 >= traffic3){ 
+                link1 = i+1;
+                if(traffic1 >= traffic3){
+                    link2 = i; 
+                }
+                else{
+                    link2 = i+2; 
+                }
+            } 
+            else{
+                link1 = i+2; 
+                if(traffic1 >= traffic2){
+                    link2 = i; 
+                }
+                else{
+                    link2 = i+1; 
+                }
+            } 
+
+            //System.out.print("The links!: " + link1 + " " + link2); 
+            goodAdj.put(link1,link2); 
+    }
+
+
+       // System.out.println(rowNumCon); 
+       // TreeMap<Integer, Integer> tree = new TreeMap<>(rowNumCon); 
+       // for(Map.Entry<Integer,Integer> entry : tree.entrySet()) {
+       //      Integer key = entry.getKey();
+       //      Integer value = entry.getValue();
+
+       //      System.out.println(key + " => " + value);
+       //  }
+
+        // Set keyset = rowNumCon.keySet(); 
+        // Object keys = rowNumCon.keySet().toArray(); 
+        // Arrays.sort(keys); 
+        // System.out.println("The num con: " +keys); 
+
+
+
+        // List<Map.Entry<Integer, Integer> > list = 
+        //        new LinkedList<Map.Entry<Integer, Integer>>(rowNumCon.entrySet()); 
+  
+        // // Sort the list 
+        // Collections.sort(list, new Comparator<Map.Entry<Integer, Integer> >() { 
+        //     public int compare(Map.Entry<Integer, Integer> o1,  
+        //                        Map.Entry<Integer, Integer> o2) 
+        //     { 
+        //         return (o1.getValue()).compareTo(o2.getValue()); 
+        //     } 
+        // }); 
+
+        // //this is sorted "row num" to num connections
+        // for(Map.Entry<Integer, Integer> entry : list){
+        //     //arbitrarily looking for hubs of three or more
+        //     if(entry.getValue() > 2){
+        //         xCord = entry.getKey(); 
+        //         List<Integer> yCords = infra.get(xCord); 
+        //         System.out.println("Found the connections for the hub! " + yCords); 
+
+        //         int firstTraffic = -1; 
+        //         int secondTraffic = -1; 
+        //         int firstLink = 0; 
+        //         int secondLink = 0; 
+        //         for(int i = 0; i < yCords.size(); i++){ 
+        //             Pair p = new Pair(xCord, yCords.get(i)); 
+        //             int id = coordinateBidId.get(p); 
+        //             int traffic = bidIdEdgeWeight.get(id); 
+        //             if (traffic > firstTraffic) 
+        //             { 
+        //                 secondTraffic = firstTraffic; 
+        //                 first = traffic;
+
+        //                 secondLink = firstLink; 
+        //                 firstLink = id; 
+        //             } 
+        //             else if (traffic > secondTraffic && traffic != firstTraffic) 
+        //                 secondTraffic = traffic;
+        //                 secondLink = id;  
+        //             } 
+        //         }
+        //     }
+        
+
+        //System.out.println("The two links are: " + firstLink + "," + secondLink); 
+        // // put data from sorted list to hashmap  
+        // HashMap<String, Integer> temp = new LinkedHashMap<Integer, Integer>(); 
+        // for (Map.Entry<Integer, Integer> aa : list) { 
+        //     temp.put(aa.getKey(), aa.getValue()); 
+        // } 
+        // return temp; 
+    } 
 
      private void updateAdjacent(){ 
 
@@ -341,22 +360,20 @@ public class Player implements railway.sim.Player {
             List<Integer> row = infra.get(l);
             
             //check for hubs 
-            if(row.size() > largestList){
-                hubStart = bidID; 
-                hubEnd = bidID + (row.size()-1);  
+            if(row.size() > 3){
+                hubs.add(bidID);   
             }
+            // System.out.println(row.size()); 
+            // rowNumCon.put(row.size(), bidID); 
+            // System.out.println("I did the thing!"); 
 
-            rowNumCon.put(l,row.size()); 
 
             for (int i = 0; i < row.size(); i++) {
                 int there = row.get(i);
-                // if(i < row.size()-1){
-                //     //add duplicate tracks to a hashmap 
-                //     if(there == row.get(i+1)){
-                //         duplicateTracks.put(bidID, bidID+1);
-                //         duplicateTracks.put(bidID+1, bidID); 
-                //     }
-                // }
+                
+                Pair p = new Pair(l,there); 
+                coordinateBidId.put(p, bidID); 
+
                 if(l<=there){
                     Connection con = new Connection(l, there, bidID);
                     allLinks.add(con); 
@@ -367,11 +384,6 @@ public class Player implements railway.sim.Player {
                 }
                  
                 int traffic = transit[l][there];
-                
-                // //mapping coordinates and bid IDs
-                // coordinateBidId.put(pair, bidID);
-                // bidIdCoordinate.put(bidID, pair);
-    
 
                 //mapping bid Ids and traffic 
                 bidIdTraffic.put(bidID, traffic);
