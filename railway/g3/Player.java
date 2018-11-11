@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Random;
 import railway.sim.Simulator;
 import java.util.HashSet;
+import java.util.Arrays;
 
 // To access data classes.
 import railway.sim.utils.*;
@@ -32,14 +33,19 @@ public class Player implements railway.sim.Player {
 
     private double[][] revenue; // price to travel along paths
     private int[] connections; // number of connections for links
+    private int[] ownedConnections; // number of connections owned--updated throughout the game
+    private ArrayList<G3Bid> wonBids = new ArrayList<G3Bid>();
 
+    private int[] ourConnections; // number of connections out of each town that we own
     private boolean[][] ownership; // which links we own
     private List<G3Bid> availableBids = new ArrayList<G3Bid>();
 
     private List<BidInfo> allBids;
-    private Bid maxBid;
+    private boolean needsUpdate = false;
     private G3Bid best;
     private int bidsThisRound;
+
+    private double avgRevenuePerLink;
 
     public Player() {
         //rand = new Random();
@@ -69,15 +75,21 @@ public class Player implements railway.sim.Player {
         this.transit = transit;
         this.revenue = getRevenue();
         this.connections = getConnections();
+        this.ourConnections = new int[connections.length];
         this.bidsThisRound = 0;
+        this.ownedConnections = new int[connections.length];
 
         // create all single link bids
+        double revenueSum = 0;
         for(BidInfo bi: allBids) {
         	int town_id1 = townLookup.indexOf(bi.town1);
         	int town_id2 = townLookup.indexOf(bi.town2);
         	G3Bid bid = new G3Bid(town_id1, town_id2, bi.id, bi.amount);
         	availableBids.add(bid);
+        	revenueSum += revenue[town_id1][town_id2];
+        	revenueSum += revenue[town_id2][town_id1];
         }
+        this.avgRevenuePerLink = revenueSum/availableBids.size();
 
         // create all double link bids
         List<G3Bid> pairs = new ArrayList<G3Bid>();
@@ -153,6 +165,51 @@ public class Player implements railway.sim.Player {
     //   i.e. the results of previous rounds.
     public Bid getBid(List<Bid> currentBids, List<BidInfo> allBids, Bid lastRoundMaxBid) {
         this.allBids = allBids;
+        //System.err.println(availableBids.size());
+
+        // remove links now owned by opponent
+        if(needsUpdate) {
+        	wonBids = new ArrayList<G3Bid>();
+            List<G3Bid> copy = new ArrayList<G3Bid>(availableBids.size());
+        	for (G3Bid b: availableBids) {
+	    		if(!sameLink(b, lastRoundMaxBid)) {
+	    			copy.add(b);
+	    		} else {
+                    wonBids.add(b);
+                }
+	    	}
+	    	availableBids = copy;
+	    	needsUpdate = false;
+
+            G3Bid wonBid = null;
+    
+            for (G3Bid b : wonBids) {
+                if ((lastRoundMaxBid.id2 > -1) && (b.id2 > -1)) {
+                    if ((lastRoundMaxBid.id1 == b.id1) && (lastRoundMaxBid.id2 == b.id2)) {
+                        wonBid = b;
+                        break;
+                    }
+                } else if ((lastRoundMaxBid.id2 < 0) && (b.id2 < 0)) {
+                    if (lastRoundMaxBid.id1 == b.id1) {
+                        wonBid = b;
+                        break;
+                    }
+                }
+            }
+            
+            ownedConnections[wonBid.town_id1] += 1;
+            //System.out.println("ownedConnections[wonBid.town_id1] = " + ownedConnections[wonBid.town_id1]);
+            ownedConnections[wonBid.town_id2] += 1;
+            //System.out.println("ownedConnections[wonBid.town_id2] = " + ownedConnections[wonBid.town_id2]);
+            if (wonBid.town_id3 > -1) {
+                ownedConnections[wonBid.town_id3] += 1;
+                //System.out.println("ownedConnections[wonBid.town_id3] = " + ownedConnections[wonBid.town_id3]);
+            }
+            //
+            //for (int i=0; i<ownedConnections.length; i++) {
+            //    System.out.println("town " + townLookup.get(i) + " has " + ownedConnections[i] + " connections");
+            //}
+        }
 
         // update possible bids according to max bids
         for (int i = 0; i < currentBids.size()-bidsThisRound; ++i) {
@@ -170,6 +227,7 @@ public class Player implements railway.sim.Player {
         bidsThisRound = currentBids.size();
 
     	// get the price-per-distance of the maximum bid so far in this round
+    	Bid maxBid;
     	double maxBidAmt;
     	if (currentBids.size() > 0) {
     		maxBid = Simulator.getMaxBid(currentBids, allBids);
@@ -192,7 +250,7 @@ public class Player implements railway.sim.Player {
     		G3Bid ret = getBestAffordableBid(availableBids);
     		if(ret!=null && ret.score >= 0) {
     			best = ret;
-    			return ret;
+    			return new G3Bid(ret);
     		}
     		return null;
     	}
@@ -222,7 +280,7 @@ public class Player implements railway.sim.Player {
 		G3Bid ret = getBestAffordableBid(availableBids);
 		if(ret!=null && ret.score >= 0) {
 			best = ret;
-			return ret;
+			return new G3Bid(ret);
 		}
 		return null;
     }
@@ -237,21 +295,71 @@ public class Player implements railway.sim.Player {
     private void evaluateBid(G3Bid bid) {
     	// really basic right now -- just computes profit from direct traffic
     	double revenue = 0;
+
+        double c1=0.15, c2=0.25, c3=0.6;
+        double hScore_total = 0;
+
+
     	if (bid.id2 == -1) {
     		// single link
     		revenue += this.revenue[bid.town_id1][bid.town_id2];
     		revenue += this.revenue[bid.town_id2][bid.town_id1];
+
+            int t1_totalC = connections[bid.town_id1];
+            int t2_totalC = connections[bid.town_id2];
+            int t1_ourC = ourConnections[bid.town_id1];
+            int t2_ourC = ourConnections[bid.town_id2];
+            int t1_ownedC = ownedConnections[bid.town_id1];
+            int t2_ownedC = ownedConnections[bid.town_id2];
+            int t1_remaining = t1_totalC - t1_ourC - t1_ownedC;
+            int t2_remaining = t2_totalC - t2_ourC - t2_ownedC;
+
+            double hScore_1 = 0, hScore_2 = 0;
+            hScore_1 = c1*t1_remaining - c2*t1_ownedC + c3*t1_ourC;
+            hScore_2 = c1*t2_remaining - c2*t2_ownedC + c3*t2_ourC;
+
+            hScore_total = hScore_1 + hScore_2 - Math.abs(hScore_1-hScore_2);
+
     	} else {
     		// pair link
     		revenue += this.revenue[bid.town_id1][bid.town_id2];
     		revenue += this.revenue[bid.town_id2][bid.town_id1];
     		revenue += this.revenue[bid.town_id2][bid.town_id3];
     		revenue += this.revenue[bid.town_id3][bid.town_id2];
-    		revenue += this.revenue[bid.town_id1][bid.town_id3];
-    		revenue += this.revenue[bid.town_id3][bid.town_id1];
+    		//revenue += this.revenue[bid.town_id1][bid.town_id3];
+    		//revenue += this.revenue[bid.town_id3][bid.town_id1];
+
+            int t1_totalC = connections[bid.town_id1];
+            int t2_totalC = connections[bid.town_id2];
+            int t3_totalC = connections[bid.town_id3];
+            int t1_ourC = ourConnections[bid.town_id1];
+            int t2_ourC = ourConnections[bid.town_id2];
+            int t3_ourC = ourConnections[bid.town_id3];
+            int t1_ownedC = ownedConnections[bid.town_id1];
+            int t2_ownedC = ownedConnections[bid.town_id2];
+            int t3_ownedC = ownedConnections[bid.town_id3];
+
+
+            int t1_remaining = t1_totalC - t1_ourC - t1_ownedC;
+            int t2_remaining = t2_totalC - t2_ourC - t2_ownedC;
+            int t3_remaining = t3_totalC - t3_ourC - t3_ownedC;
+
+            double hScore_1 = 0, hScore_2 = 0, hScore_3 = 0;
+            hScore_1 = c1*t1_remaining - c2*t1_ownedC + c3*t1_ourC;
+            hScore_2 = c1*t2_remaining - c2*t2_ownedC + c3*t2_ourC;
+            hScore_3 = c1*t3_remaining - c2*t3_ownedC + c3*t3_ourC;
+
+            hScore_total = hScore_1 + hScore_2 - Math.abs(hScore_1-hScore_2) + hScore_2 + hScore_3 - Math.abs(hScore_2-hScore_3);
+
+            
     	}
 
-    	bid.score = revenue - bid.amount;
+        if (revenue - bid.amount >= 0){
+            bid.score = (0.7)*(revenue-bid.amount) + (0.3)*avgRevenuePerLink*hScore_total;
+        }
+        else {
+            bid.score = (0.95)*(revenue-bid.amount) + (0.05)*avgRevenuePerLink*hScore_total;
+        }
     }
 
     private G3Bid getBestAffordableBid(List<G3Bid> availableBids) {
@@ -338,11 +446,51 @@ public class Player implements railway.sim.Player {
     // Indicates to the player whether they have won the previous bid of link/pair of links.
     // A null bid indicates that they did not win their bid.
     public void updateBudget(Bid bid) {
-
-    	availableBids = removeOwned(availableBids, bid);
-
         if (bid != null) {
             budget -= bid.amount;
+
+            System.out.println("We won.");
+
+            System.out.print("ID1: ");
+            System.out.println(bid.id1);
+
+            System.out.print("ID2: ");
+            System.out.println(bid.id2);
+
+            // remove all owned links from possible bids
+            List<G3Bid> copy = new ArrayList<G3Bid>(availableBids.size());
+            for (G3Bid b: availableBids) {
+	    		if(!sameLink(b, this.best) && !sameTowns(b, this.best)) {
+	    			copy.add(b);
+	    		}
+                // This bid is what we just won
+                else {
+                    // Current bid is a single link and the one we just won is single
+                    if (b.id2 == -1 && bid.id2 == -1) {
+                        ourConnections[b.town_id1] +=1;
+                        ourConnections[b.town_id2] +=1;
+                    }
+                    // Current bid is a double link and what we just won is double
+                    else if (b.id2 == bid.id2 && b.id1==bid.id1) {
+                        ourConnections[b.town_id1] += 1;
+                        ourConnections[b.town_id2] += 2;
+                        ourConnections[b.town_id3] +=1;
+                        
+                    }
+                    
+                }
+	    	}
+
+            for (int i = 0; i < ourConnections.length; i++) {
+                System.out.println(ourConnections[i]);
+            }
+
+            System.out.println(ourConnections);
+	    	availableBids = copy;
+
+        } else {
+        	// must wait to see another player's owned bid and update the possible bids
+        	needsUpdate = true;
         }
 
         // reset all the bids at the end of the round
@@ -354,27 +502,7 @@ public class Player implements railway.sim.Player {
         bidsThisRound = 0;
     }
 
-    private List<G3Bid> removeOwned(List<G3Bid> available, Bid latest) {
-    	List<G3Bid> ret = new ArrayList<G3Bid>(available.size());
-
-    	if(latest != null) {
-	    	for (G3Bid bid: available) {
-	    		if(!sameLink(bid, latest) && !sameTowns(bid, this.best)) {
-	    			ret.add(bid);
-	    		}
-	    	}
-    	} else {
-    		for (G3Bid bid: available) {
-	    		if(!sameLink(bid, maxBid)) {
-	    			ret.add(bid);
-	    		}
-	    	}
-    	}
-
-    	return ret;
-    }
-
-    private boolean sameLink(G3Bid bid, Bid owned) {
+    private boolean sameLink(Bid bid, Bid owned) {
     	int b1l1, b1l2, b2l1, b2l2;
     	b1l1 = bid.id1;
     	b1l2 = bid.id2;
@@ -401,7 +529,7 @@ public class Player implements railway.sim.Player {
     	b2t2 = owned.town_id2;
     	b2t3 = owned.town_id3;
 
-    	if(b1t1==b2t1 && b1t2==b2t2 || b1t2==b2t1 && b1t2==b2t1) {
+    	if(b1t1==b2t1 && b1t2==b2t2 || b1t2==b2t1 && b1t1==b2t2) {
     		return true;
     	}
 

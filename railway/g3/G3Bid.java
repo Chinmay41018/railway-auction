@@ -73,6 +73,17 @@ public class G3Bid extends Bid implements Comparable<G3Bid> {
 		this.score = 0;
 	}
 
+	// copy constructor
+	public G3Bid(G3Bid toCopy) {
+		this.town_id1 = toCopy.town_id1;
+		this.town_id2 = toCopy.town_id2;
+		this.town_id3 = toCopy.town_id3;
+		this.id1 = toCopy.id1;
+		this.id2 = toCopy.id2;
+		this.min_bid = this.amount = toCopy.amount;
+		this.score = toCopy.score;
+	}
+
 	@Override
 	public int compareTo(G3Bid other) {
 		return (int)Math.signum(other.score - this.score);

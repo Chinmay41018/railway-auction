@@ -50,7 +50,7 @@ public class Player implements railway.sim.Player {
     private double lastBid;
     private List<List<Integer>> infra;
     private int[][] transit;
-
+    public List<Integer> weOwn;
     //hashmap of all our connections- and then map connection 1 etc. to bid ID 
     //key: coordinates, valueL bidID
     private HashMap<Pair, Integer> coordinateBidId = new HashMap<Pair, Integer>();
@@ -62,7 +62,7 @@ public class Player implements railway.sim.Player {
     private HashMap<Integer, Double> bidIdMinBid = new HashMap<Integer, Double>();
     private HashMap<Integer, Double> bidDistance = new HashMap<Integer, Double>();
 
-
+    public Bid lastBidHistory;
     //Hahsmap for edgeweights
     private HashMap<Integer, Integer> bidIdEdgeWeight = new HashMap<Integer, Integer>();
 
@@ -98,17 +98,13 @@ public class Player implements railway.sim.Player {
         this.budget = budget;
         this.transit = transit;
         this.infra = infra;
+        weOwn = new ArrayList<>();
         gu = new GraphUtility(geo, infra, transit, townLookup);
         lastBid = -1;
-        // System.out.println("DEBUGGGGG ////////");
-        // System.out.println(townLookup.get(0));
-        // System.out.println(townLookup.get(1));
-        // for(Object i: gu.path[2][0]){
-        //     System.out.print(townLookup.get((Integer) i));
-        //     System.out.print(i);
-        //     System.out.print(",");
-        // }
-        // System.out.println("");
+        lastBidHistory = new Bid();
+        lastBidHistory.id1 = -1;
+        lastBidHistory.id2 = -1;
+        lastBidHistory.amount = -1;
 
         buildEdgeHashMap(gu.edgeWeight, geo);
         buildHashMap();
@@ -116,30 +112,20 @@ public class Player implements railway.sim.Player {
         //HEY GUYS this demos the structures I've built- you have a list all of all the connections, 
         //and a hashmap of the coordinates to the bid ID. 
         //Don't forget to comment out print statements once you know what its doing! 
+        /*
         System.out.println("The list of all connections: " );
         for(Connection c: allLinks){
 
             //int id = coordinateBidId.get(c); 
             System.out.println("Link ID: " + c.id + ": " + c.row + ", " + c.column);  
         } 
-
+        */
         findDuplicates(); 
-        System.out.println("The dups are: " + duplicateTracks); 
+        //System.out.println("The dups are: " + duplicateTracks); 
 
         bestAdjacent(); 
     }
 
-    /*
-        public void calcDistances(){
-            for (int i=0; i < infra.size(); ++i) {
-                for (int j=0; j < infra.get(i).size(); ++j) {
-                    int t1 = i;
-                    int t2 = infra.get(i).get(j);
-                    double distance = getDistance(t1, t2);
-               }
-            }
-        }
-    */
     private static double getDistance(int t1, int t2, List<Coordinates> geo) {
         return Math.pow(
                 Math.pow(geo.get(t1).x - geo.get(t2).x, 2) +
@@ -168,7 +154,7 @@ public class Player implements railway.sim.Player {
         for(int i: hubs){
 
             traffic1 = bidIdEdgeWeight.get(i); 
-            traffic1 = bidIdEdgeWeight.get(i+1); 
+            traffic2 = bidIdEdgeWeight.get(i+1); 
             int traffic3 = bidIdEdgeWeight.get(i+2); 
 
             if(traffic1 >= traffic2 && traffic1 >= traffic3){
@@ -199,7 +185,6 @@ public class Player implements railway.sim.Player {
                 }
             } 
 
-            //System.out.print("The links!: " + link1 + " " + link2); 
             goodAdj.put(link1,link2); 
         }
     } 
@@ -212,15 +197,11 @@ public class Player implements railway.sim.Player {
     private int calculateHighestTraffic(){
         int currentMax = 0;
         int best = 0;
-
-        //System.out.println("Printing my hashmap"); 
         for (BidInfo b : availableBids) {
             int i = b.id;
-            //System.out.println("Key: " + i + " Value: " + bidIdTraffic.get(i)); 
             if (bidIdTraffic.get(i) > currentMax) {
                 currentMax = bidIdTraffic.get(i);
                 best = i;
-                //System.out.println("Found best: " + i + "," + currentMax); 
             }
         }
         return best;
@@ -229,15 +210,11 @@ public class Player implements railway.sim.Player {
     private int highestTrafficEdgeWeight() {
         int currentMax = 0;
         int best = 0;
-
-        //System.out.println("Printing my hashmap"); 
         for (BidInfo b : availableBids) {
             int i = b.id;
-            //System.out.println("Key: " + i + " Value: " + bidIdTraffic.get(i)); 
             if (bidIdEdgeWeight.get(i) > currentMax) {
                 currentMax = bidIdEdgeWeight.get(i);
                 best = i;
-                //System.out.println("Found best: " + i + "," + currentMax); 
             }
         }
         return best;
@@ -335,35 +312,68 @@ public class Player implements railway.sim.Player {
         double dist = bidDistance.get(id);
         int n = infra.size();
         float percent = ((float) n*traffic / (float) totalTraffic);
+        percent = ((float) n*traffic*percent / (float) totalTraffic);
+        //percent = ((float) n*traffic*percent / (float) totalTraffic);
         //System.out.println("Traffic: " + traffic + " totalTraffic: " + totalTraffic + " percent: " + percent); 
         double fractionOfBudget = (double) (n*dist * percent)/totalDistance;
-        bid *= (3+fractionOfBudget);
+        bid *= (1+fractionOfBudget);
 
-        System.out.println("New bid: " + bidIdMinBid.get(id) + " our addition: " + bid);
+        //System.out.println("New bid: " + bidIdMinBid.get(id) + " our addition: " + bid);
         if (bid < budget) {
             return bid;
         } else {
             return bidIdMinBid.get(id);
         }
     }
+    private boolean checkBidNotEquality(Bid b1, Bid b2){
+        if (b2==null){
+            return false;
+        }
+        if ((b1.id1==b2.id1)&&(b1.id2==b2.id2)&&(b1.amount==b2.amount)){
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
 
     public Bid getBid(List<Bid> currentBids, List<BidInfo> allBids, Bid lastRoundMaxBid) {
-        /*
-        if (availableBids.size() != 0) {
-            return null;
+
+        if(checkBidNotEquality(lastBidHistory,lastRoundMaxBid)){
+            gu.update(allBids);
+            buildEdgeHashMap(gu.edgeWeight, gu.geo);
+            buildHashMap();
+            lastBidHistory.id1 = lastRoundMaxBid.id1;
+            lastBidHistory.id2 = lastRoundMaxBid.id2;
+            lastBidHistory.amount = lastRoundMaxBid.amount;
         }
-        */
-        //adding all available bids and adding to hashmap of bid id to minimum bid
-        
-        //printAllInfo(currentBids, allBids); 
-  //why are we buidling maps in the getBid function?? at least the buildHashMap(); only needs to occur in the init. 
-//         gu.update(allBids);
-//         buildEdgeHashMap(gu.edgeWeight, gu.geo);
-//         buildHashMap();
+        availableBids = new ArrayList<>();
         for (BidInfo bi : allBids) {
-            if (bi.owner == null) {
-                availableBids.add(bi);
-                bidIdMinBid.put(bi.id, bi.amount);
+            if ((bi.owner == null)&&(!weOwn.contains(bi.id))) {
+                if(duplicateTracks.get(bi.id)==null){
+                    availableBids.add(bi);
+                    bidIdMinBid.put(bi.id, bi.amount);                    
+                }
+                else{
+                    int otherID = duplicateTracks.get(bi.id);
+                    if(!weOwn.contains(otherID)){
+                        if((duplicateTracks.get(bi.id-1)!=null)&&(duplicateTracks.get(bi.id-1)==bi.id)){
+                            int otherID2 = bi.id-1;
+                            if(!weOwn.contains(otherID2)){
+                                availableBids.add(bi);
+                                bidIdMinBid.put(bi.id, bi.amount);                                
+                            }
+                            else{
+                                weOwn.contains(bi.id);
+                            }
+                        }
+                        else{
+                            availableBids.add(bi);
+                            bidIdMinBid.put(bi.id, bi.amount);
+                        }
+                    }
+
+                }
             }
         }
 
@@ -371,19 +381,12 @@ public class Player implements railway.sim.Player {
             return null;
         }
 
-        //getAdjacentBids(); 
-        // System.out.println("The infra: " + infra); 
-        // System.out.println("The num conn HashMap: " + rowNumCon); 
-        // for(key)
-        // System.out.prinln("BidID and Coordinate map: " + bidIdCoordinate); 
-
         int bidID = highestTrafficEdgeWeight();
-        //int bidID = calculateHighestTraffic();
+        //System.out.println(duplicateTracks.get(bidID));
         double cashMoney = calculateBid(bidID);
         Bid bid = new Bid();
         bid.id1 = bidID;
         bid.amount = bidIdMinBid.get(bidID);
-        //System.out.println("Bid before checking other playerse: " + cashMoney + "  " + bid.amount);
         double max = 0.0;
         // Check if another player has made a bid for this link.
         for (Bid b : currentBids) {
@@ -431,8 +434,18 @@ public class Player implements railway.sim.Player {
     public void updateBudget(Bid bid) {
         if (bid != null) {
             budget -= bid.amount;
+            weOwn.add(bid.id1);
+            int id = bid.id1;
+            while(true){
+                if(duplicateTracks.get(id)!=null){
+                    weOwn.add(duplicateTracks.get(id));
+                    id += 1;
+                }
+                else{
+                    break;
+                }
+            }
         }
-
         availableBids = new ArrayList<>();
     }
 }
